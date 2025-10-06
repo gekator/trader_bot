@@ -1,0 +1,4 @@
+[submodule "backtest"]
+	path = backtest
+	url = git@github.com:gekator/backtest.git
+	branch = main
