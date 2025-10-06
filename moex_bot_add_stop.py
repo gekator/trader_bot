@@ -21,7 +21,7 @@ from backtest.Trader.Trader import Trader
 from backtest.TraderRLModels import ActorCriticConv1D, GetStateIndCombConv1D
 from backtest.TraderUtil import readSettings, ScaleValues
 
-from backtest.StrategyGapv2 import StrategyWithFeuteresOnly, RLSettings
+from backtest.TraderUtil import  RLSettings
 from backtest.createDirectory import makeFolderName, makeDir
 from backtest.Trader.TraderTelegram import Trader
 from config import TOKEN, ADMIN_ID, CHANNEL_ID
@@ -85,7 +85,6 @@ TICKER, nameOfTicker, timeDelta, folderName, rewardType, nameOfDates, nameOfTest
 PERIOD = '/'+ str(timeDelta) +'m/'
 comis = (comisBroker, comisMoex) 
 
-myStrategy = StrategyWithFeuteresOnly
 folderName = makeFolderName(folderName, comis[0], Gamma, Clc, lr, del_r, gran, will)
 nameOfModel = "GAZP_ActorCriticConv1D_Tr_Rw=410748_Test_Rw=139382_returns_RSI5_sc_AD5_returns_sc__ep=490"
 
@@ -126,7 +125,6 @@ action_numbers = 3
 # # Check its architecture
 # model.summary()
 
-myStrategy = StrategyWithFeuteresOnly
 
 # ID чата, куда будут отправляться сообщения о сделках
 # Можно получить, написав боту /start и посмотрев в логи
