@@ -14,11 +14,11 @@ import pandas as pd
 import numpy as np
 import os.path
 
-from backtest.Trader.Trader import Trader
+from backtest.Trader.TraderTelegram import Trader
 from backtest.TraderRLModels import ActorCriticConv1D, GetStateIndCombConv1D
 from backtest.TraderUtil import readSettings, ScaleValues, RLSettings
 from backtest.createDirectory import makeFolderName, makeDir
-from config import TOKEN as BOT_TOKEN, ADMIN_ID, CHANNEL_ID
+from config import BOT_TOKEN as BOT_TOKEN, ADMIN_ID, CHANNEL_ID
 
 # Интервал данных (1 или 10 минут)
 INTERVAL = 10
@@ -85,7 +85,7 @@ def calculate_rsi(data, rsi_period):
 
 
 # --- Настройки из файла ---
-pathToFile = "/backtest/TraderExamples/Settings/SettingsGAZPTrain_7-10-2024_13-2-2025_01092025.csv"
+pathToFile = "backtest/Settings/SettingsGAZPTrain_7-10-2024_13-2-2025_01092025.csv"
 (
     TICKER, nameOfTicker, timeDelta, folderName, rewardType, nameOfDates,
     nameOfTestDates, dateName, lots, startCash, comisBroker, comisMoex,
@@ -97,8 +97,8 @@ PERIOD = f'/{timeDelta}m/'
 comis = (comisBroker, comisMoex)
 folderName = makeFolderName(folderName, comis[0], Gamma, Clc, lr, del_r, gran, will)
 
-nameOfModel = "GAZP_ActorCriticConv1D_Tr_Rw=410748_Test_Rw=139382_returns_RSI5_sc_AD5_returns_sc__ep=490"
-PATHFORMODELS = f"/backtest/TrainedModels/{TICKER}{PERIOD}{folderName}"
+nameOfModel = "GAZP_ActorCriticConv1D_Tr_Rw=441772_Test_Rw=205009_returns_RSI5_sc_AD5_returns_sc__ep=310"
+PATHFORMODELS = f"backtest/TrainedModels/{TICKER}{PERIOD}{folderName}"
 PATHFORMODELSPTH = f"{PATHFORMODELS}pth/{nameOfModel}.pth"
 PATHFORPDF = f"{PATHFORMODELS}test/{nameOfModel}"
 PATHFORJITMODELS = f"{PATHFORMODELS}l/{nameOfModel}_jit.pt"
@@ -288,21 +288,59 @@ class Strategy:
                 return None, None
 
     async def get_securities_info(self):
-        """Получает текущее время последнего обновления котировок GAZP на MOEX."""
+        """Получить информацию об акции GAZP в режиме TQBR."""
         async with aiohttp.ClientSession() as session:
             try:
+                # get_board_securities возвращает информацию о ценных бумагах на доске
+                # Используем table='marketdata' для получения текущих рыночных данных
                 securities_data = await aiomoex.get_board_securities(
-                    session, table='marketdata', board='TQBR',
-                    market='shares', engine='stock'
+                    session,
+                    table='marketdata', # Важно: запрашиваем таблицу marketdata
+                    columns=None, # Запрашиваем все колонки
+                    board='TQBR',
+                    market='shares',
+                    engine='stock'
                 )
-                for item in securities_data:
-                    if item.get('SECID') == 'GAZP':
-                        update_time_str = item.get('UPDATETIME')
-                        time_obj = datetime.strptime(update_time_str, "%H:%M:%S").time()
-                        return datetime.combine(datetime.now().date(), time_obj)
+
+                if securities_data:
+                    # Нужно найти запись для GAZP в списке всех бумаг
+                    gazp_data = None
+                    for item in securities_data:
+                        if item.get('SECID') == 'GAZP':
+                            gazp_data = item
+                            break
+
+                    if gazp_data:
+                        #print("\nТекущие рыночные данные для GAZP из get_board_securities (marketdata):")
+                        #print(gazp_data)
+                        # Поля из вашего предыдущего ответа API
+                        last_price = gazp_data.get('LAST')
+                        change = gazp_data.get('CHANGE')
+                        update_time = gazp_data.get('UPDATETIME')
+                        bid = gazp_data.get('BID')
+                        offer = gazp_data.get('OFFER')
+                        """print(f"\nПоследняя цена (LAST): {last_price}")
+                        print(f"Изменение (CHANGE): {change}")
+                        print(f"Время обновления (UPDATETIME): {update_time}")
+                        print(f"Лучшая цена покупки (BID): {bid}")
+                        print(f"Лучшая цена продажи (OFFER): {offer}")"""
+                        y = datetime.now()
+                        print("datetime.now()", y)
+                        # 1. Преобразуем строку времени в объект time
+                        time_obj = datetime.strptime(update_time, "%H:%M:%S").time()
+                        # 2. Создаём новый datetime: дата из y, время из x
+                        new_datetime = datetime.combine(y.date(), time_obj)
+                        print(new_datetime)
+                        return new_datetime
+                    else:
+                        print("\nИнформация для GAZP не найдена в данных marketdata.")
+                else:
+                    print("\nНе удалось получить данные marketdata.")
+
             except Exception as e:
-                print(f"Ошибка при получении данных: {e}")
+                print(f"Ошибка при получении информации о ценных бумагах: {e}")
             return None
+
 
     async def run_episode(self, worker_model):
         """Основной цикл live-торговли: получение данных, принятие решений, отправка сигналов."""
